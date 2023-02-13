@@ -24,10 +24,14 @@ param location string = resourceGroup().location
 param defaultResourceName string
 
 param privateDnsZones array
+var primaryInboundDnsResolverEndpointIpAddress = '10.250.0.4' // First available IP Address in DnsPrimaryInboundSubnet
+var secondaryInboundDnsResolverEndpointIpAddress = '10.250.1.4' // First available IP Address in DnsSecondaryInboundSubnet
+var primaryInboundDnsResolverSubnetName = 'DnsPrimaryInboundSubnet' // First available IP Address in DnsPrimaryInboundSubnet
+var secondaryInboundDnsResolverSubnetName = 'DnsSecondaryInboundSubnet' // First available IP Address in DnsPrimaryInboundSubnet
 
 var defaultSubnets = [
   {
-    name: 'IntegrationConfig'
+    name: 'IntegrationConfigSubnet'
     properties: {
       addressPrefix: '10.0.0.0/24'
       delegations: []
@@ -35,7 +39,7 @@ var defaultSubnets = [
     }
   }
   {
-    name: 'GatewaySubnet'
+    name: 'IntegrationMessagingSubnet'
     properties: {
       addressPrefix: '10.0.1.0/24'
       delegations: []
@@ -43,9 +47,73 @@ var defaultSubnets = [
     }
   }
   {
-    name: 'DnsPrimaryInboundSubnet'
+    name: 'IntegrationEventsSubnet'
     properties: {
-      addressPrefix: '10.255.253.0/24'
+      addressPrefix: '10.0.2.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'IntegrationCacheSubnet'
+    properties: {
+      addressPrefix: '10.0.3.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'IntegrationLogSubnet'
+    properties: {
+      addressPrefix: '10.0.4.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'AppGatewaySubnet'
+    properties: {
+      addressPrefix: '10.0.250.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'ApimSubnet'
+    properties: {
+      addressPrefix: '10.0.251.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'IdentityServiceSubnet'
+    properties: {
+      addressPrefix: '10.1.0.0/23'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'IdentityConfigDataSubnet'
+    properties: {
+      addressPrefix: '10.1.2.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: 'IdentityOperationalDataSubnet'
+    properties: {
+      addressPrefix: '10.1.3.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+  }
+  {
+    name: primaryInboundDnsResolverSubnetName
+    properties: {
+      addressPrefix: '10.250.0.0/24'
       delegations: [
         {
           name: 'delegation'
@@ -58,9 +126,9 @@ var defaultSubnets = [
     }
   }
   {
-    name: 'DnsSecondaryInboundSubnet'
+    name: secondaryInboundDnsResolverSubnetName
     properties: {
-      addressPrefix: '10.255.254.0/24'
+      addressPrefix: '10.250.1.0/24'
       delegations: [
         {
           name: 'delegation'
@@ -73,7 +141,7 @@ var defaultSubnets = [
     }
   }
   {
-    name: 'DnsOutboundSubnet'
+    name: 'GatewaySubnet'
     properties: {
       addressPrefix: '10.255.255.0/24'
       delegations: []
@@ -99,45 +167,12 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-07-01' = {
       ]
     }
     subnets: subnets
-  }
-}
-
-resource dnsResolver 'Microsoft.Network/dnsResolvers@2022-07-01' = {
-  name: '${defaultResourceName}-dns-res'
-  location: location
-  properties: {
-    virtualNetwork: {
-      id: virtualNetwork.id
+    dhcpOptions: {
+      dnsServers: [
+        primaryInboundDnsResolverEndpointIpAddress
+        secondaryInboundDnsResolverEndpointIpAddress
+      ]
     }
-  }
-}
-
-resource dnsPrimaryResolverInbound 'Microsoft.Network/dnsResolvers/inboundEndpoints@2022-07-01' = {
-  name: '${defaultResourceName}-dns-res-inb001'
-  location: location
-  parent: dnsResolver
-  properties: {
-    ipConfigurations: [
-      {
-        subnet: {
-          id: '${virtualNetwork.id}/subnets/DnsPrimaryInboundSubnet'
-        }
-      }
-    ]
-  }
-}
-resource dnsSecondaryResolverInbound 'Microsoft.Network/dnsResolvers/inboundEndpoints@2022-07-01' = {
-  name: '${defaultResourceName}-dns-res-inb002'
-  location: location
-  parent: dnsResolver
-  properties: {
-    ipConfigurations: [
-      {
-        subnet: {
-          id: '${virtualNetwork.id}/subnets/DnsSecondaryInboundSubnet'
-        }
-      }
-    ]
   }
 }
 
@@ -217,5 +252,11 @@ module dnsZoneModule 'Network/privateDnsZones.bicep' = [for dnsZone in privateDn
     virtualNetworkName: virtualNetwork.name
   }
 }]
+
 output resourceId string = virtualNetwork.id
 output vnetName string = virtualNetwork.name
+
+output primaryInboundDnsResolverEndpointIpAddress string = primaryInboundDnsResolverEndpointIpAddress
+output secondaryInboundDnsResolverEndpointIpAddress string = secondaryInboundDnsResolverEndpointIpAddress
+output primaryInboundDnsResolverSubnetName string = primaryInboundDnsResolverSubnetName
+output secondaryInboundDnsResolverSubnetName string = secondaryInboundDnsResolverSubnetName

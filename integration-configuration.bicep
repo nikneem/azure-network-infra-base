@@ -31,26 +31,46 @@ resource appConfiguration 'Microsoft.AppConfiguration/configurationStores@2022-0
   }
 }
 
-resource appConfigurationValue 'Microsoft.AppConfiguration/configurationStores/keyValues@2022-05-01' = {
-  name: 'ConfigurationValue'
-  parent: appConfiguration
-  properties: {
-    contentType: 'text/plain'
-    value: 'Configured Value'
-  }
-}
-
 module appConfigurationPrivateEndpoint 'Network/privateEndpoints.bicep' = {
   name: 'appConfigurationPrivateEndpointModule'
   params: {
     costCenter: costCenter
     targetResourceId: appConfiguration.id
     resourceName: '${defaultResourceName}-cfg-pe'
-    subnetName: 'IntegrationConfig'
+    subnetName: 'IntegrationConfigSubnet'
     location: location
     vnetName: vnetName
     vnetResourceGroup: vnetResourceGroup
     privateDnsZone: 'privatelink.azconfig.io'
     groupId: 'configurationStores'
+  }
+}
+
+resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' = {
+  name: '${defaultResourceName}-kv'
+  location: location
+  properties: {
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    tenantId: subscription().tenantId
+    enableRbacAuthorization: true
+    publicNetworkAccess: 'Disabled'
+  }
+}
+
+module keyVaultPrivateEndpoint 'Network/privateEndpoints.bicep' = {
+  name: 'keyVaultPrivateEndpointModule'
+  params: {
+    costCenter: costCenter
+    targetResourceId: keyVault.id
+    resourceName: '${defaultResourceName}-kv-pe'
+    subnetName: 'IntegrationConfigSubnet'
+    location: location
+    vnetName: vnetName
+    vnetResourceGroup: vnetResourceGroup
+    privateDnsZone: 'privatelink.vaultcore.azure.net'
+    groupId: 'vault'
   }
 }
